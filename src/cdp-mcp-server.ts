@@ -7,6 +7,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { CDPClient } from "./cdp-client.js";
 import { processBinaryData } from "./utils.js";
+import { ChromeLauncher, ChromeLauncherOptions } from "./chrome-launcher.js";
 
 /**
  * MCP server that connects to a CDP endpoint and exposes the raw command
@@ -14,12 +15,14 @@ import { processBinaryData } from "./utils.js";
  */
 export class CDPMcpServer {
   private server: Server;
-  private cdpUrl: string;
   private cdpClient: CDPClient | null = null;
   private connected = false;
+  private chromeLauncher: ChromeLauncher;
 
-  constructor(cdpUrl: string) {
-    this.cdpUrl = cdpUrl;
+  constructor(cdpUrl: string, chromeLauncherOptions?: ChromeLauncherOptions) {
+    // Note: cdpUrl parameter kept for backward compatibility but not used
+    // Chrome launcher handles the connection URL internally
+    this.chromeLauncher = new ChromeLauncher(chromeLauncherOptions);
     this.server = new Server(
       {
         name: "DevTools MCP server",
@@ -128,7 +131,9 @@ export class CDPMcpServer {
     const response = await this.cdpClient.sendCommand(method, params);
 
     // Process response to handle potential binary data, e.g. screenshots
-    const processedResponse = processBinaryData(response, "./cdp-output");
+    const outputDir =
+      "/Users/verdant/Documents/Cline/MCP/devtools-mcp/cdp-output";
+    const processedResponse = processBinaryData(response, outputDir);
 
     return {
       content: [
@@ -146,11 +151,13 @@ export class CDPMcpServer {
     }
 
     try {
-      // Get available targets
-      const targets = await CDPClient.getPageTargets(this.cdpUrl);
+      // Use Chrome launcher to ensure Chrome is running and get targets
+      const targets = await this.chromeLauncher.ensureRunning();
+
       if (targets.length === 0) {
         throw new Error(
-          "No page targets available. Make sure Chrome/Chromium is running with --remote-debugging-port=9222"
+          "No page targets available even after attempting to start Chrome. " +
+            "Please check Chrome installation and try again."
         );
       }
 
@@ -196,6 +203,10 @@ export class CDPMcpServer {
       this.cdpClient = null;
       this.connected = false;
     }
+
+    // Stop Chrome if we started it
+    this.chromeLauncher.stop();
+
     await this.server.close();
   }
 }
