@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/stefanli-devtools-mcp-badge.png)](https://mseep.ai/app/stefanli-devtools-mcp)
+
 # devtools-mcp
 
 A MCP server that provides Chrome DevTools Protocol access to LLMs.
